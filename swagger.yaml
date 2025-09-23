@@ -1,0 +1,1497 @@
+openapi: 3.0.3
+info:
+  title: Redis Streams POC API
+  description: |
+    A comprehensive Node.js application demonstrating Redis Streams for real-time data processing with Express, PostgreSQL, and Sequelize.
+    
+    ## Features
+    - 🚀 Redis Streams Integration with producer/consumer patterns
+    - 📊 Consumer Groups for scalable and fault-tolerant message processing
+    - 🗄️ PostgreSQL + Sequelize for persistent data storage
+    - 🌐 RESTful API endpoints for triggering events
+    - 📝 Complete audit trail of all events
+    - 🔄 Real-time processing with event-driven architecture
+    
+    ## Redis Streams
+    This API demonstrates various Redis Streams operations:
+    - **XADD** - Publishing events to streams
+    - **XREAD** - Simple event consumption
+    - **XREADGROUP** - Consumer group processing
+    - **XACK** - Message acknowledgment
+    - **XGROUP CREATE** - Consumer group management
+  version: 1.0.0
+  contact:
+    name: Redis Streams POC
+    url: https://github.com/your-username/redis-streams-poc
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://your-domain.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check and system status
+  - name: Users
+    description: User management with event publishing
+  - name: Events
+    description: Event publishing and management
+  - name: Chat
+    description: Chat message events
+  - name: Tasks
+    description: Task management events
+  - name: System
+    description: System logs and monitoring
+  - name: Monitoring
+    description: Redis Streams monitoring and inspection
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Check the health status of the application and its dependencies
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2024-01-15T10:30:00.000Z"
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: connected
+                      redis:
+                        type: string
+                        example: connected
+        '500':
+          description: Application is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  error:
+                    type: string
+
+  /:
+    get:
+      tags:
+        - Health
+      summary: API documentation and information
+      description: Get API information and available endpoints
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Redis Streams POC API
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  endpoints:
+                    type: object
+                    properties:
+                      health:
+                        type: string
+                        example: /health
+                      users:
+                        type: string
+                        example: /api/users
+                      events:
+                        type: string
+                        example: /api/events
+
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Retrieve a list of all users in the system
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of users to return
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          description: Number of users to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  count:
+                    type: integer
+                    example: 25
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Create a new user and publish a user.created event to Redis Streams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+              properties:
+                username:
+                  type: string
+                  example: john_doe
+                  description: Unique username for the user
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                  description: User's email address
+                status:
+                  type: string
+                  enum: [active, inactive, suspended]
+                  default: active
+                  description: User account status
+      responses:
+        '201':
+          description: User created successfully and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  messageId:
+                    type: string
+                    example: "1642248000000-0"
+                    description: Redis Stream message ID
+                  message:
+                    type: string
+                    example: User created and event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieve a specific user by their ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update a user and publish a user.updated event to Redis Streams
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: john_doe_updated
+                email:
+                  type: string
+                  format: email
+                  example: john.updated@example.com
+                status:
+                  type: string
+                  enum: [active, inactive, suspended]
+      responses:
+        '200':
+          description: User updated successfully and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+                  changes:
+                    type: object
+                    description: Object showing what fields were changed
+                  messageId:
+                    type: string
+                    example: "1642248000000-1"
+                  message:
+                    type: string
+                    example: User updated and event published successfully
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete a user and publish a user.deleted event to Redis Streams
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted successfully and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  messageId:
+                    type: string
+                    example: "1642248000000-2"
+                  message:
+                    type: string
+                    example: User deleted and event published successfully
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/chat:
+    post:
+      tags:
+        - Chat
+      summary: Send chat message
+      description: Send a chat message and publish a message.sent event to Redis Streams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - senderId
+                - receiverId
+                - content
+              properties:
+                senderId:
+                  type: string
+                  example: user-123
+                  description: ID of the message sender
+                receiverId:
+                  type: string
+                  example: user-456
+                  description: ID of the message receiver
+                content:
+                  type: string
+                  example: Hello, how are you?
+                  description: Message content
+                roomId:
+                  type: string
+                  example: general
+                  default: general
+                  description: Chat room ID
+      responses:
+        '201':
+          description: Chat message sent and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    $ref: '#/components/schemas/ChatMessage'
+                  messageId:
+                    type: string
+                    example: "1642248000000-3"
+                  message:
+                    type: string
+                    example: Chat message sent and event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/tasks:
+    post:
+      tags:
+        - Tasks
+      summary: Create task
+      description: Create a new task and publish a task.created event to Redis Streams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - assignedTo
+                - createdBy
+              properties:
+                title:
+                  type: string
+                  example: Implement Redis Streams
+                  description: Task title
+                description:
+                  type: string
+                  example: Complete the Redis Streams POC implementation
+                  description: Task description
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+                  default: medium
+                  description: Task priority
+                assignedTo:
+                  type: string
+                  example: user-123
+                  description: User ID assigned to the task
+                createdBy:
+                  type: string
+                  example: user-456
+                  description: User ID who created the task
+                dueDate:
+                  type: string
+                  format: date-time
+                  example: "2024-01-20T23:59:59.000Z"
+                  description: Task due date
+      responses:
+        '201':
+          description: Task created and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  task:
+                    $ref: '#/components/schemas/Task'
+                  messageId:
+                    type: string
+                    example: "1642248000000-4"
+                  message:
+                    type: string
+                    example: Task created and event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/tasks/{taskId}/complete:
+    post:
+      tags:
+        - Tasks
+      summary: Complete task
+      description: Mark a task as completed and publish a task.completed event to Redis Streams
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+            example: task-123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - completedBy
+              properties:
+                completedBy:
+                  type: string
+                  example: user-123
+                  description: User ID who completed the task
+                completionNotes:
+                  type: string
+                  example: Task completed successfully with all requirements met
+                  description: Optional completion notes
+      responses:
+        '200':
+          description: Task completed and event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  messageId:
+                    type: string
+                    example: "1642248000000-5"
+                  message:
+                    type: string
+                    example: Task completion event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/logs:
+    post:
+      tags:
+        - System
+      summary: Publish system log
+      description: Publish a system log event to Redis Streams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - message
+              properties:
+                level:
+                  type: string
+                  enum: [info, warn, error, debug]
+                  example: info
+                  description: Log level
+                message:
+                  type: string
+                  example: User authentication successful
+                  description: Log message
+                metadata:
+                  type: object
+                  example: { userId: "user-123", ip: "192.168.1.1" }
+                  description: Additional metadata
+      responses:
+        '201':
+          description: System log event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  messageId:
+                    type: string
+                    example: "1642248000000-6"
+                  message:
+                    type: string
+                    example: System log event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/custom:
+    post:
+      tags:
+        - Events
+      summary: Publish custom event
+      description: Publish a custom event to any Redis Stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - streamName
+                - eventType
+                - payload
+              properties:
+                streamName:
+                  type: string
+                  example: custom:events
+                  description: Name of the Redis Stream
+                eventType:
+                  type: string
+                  example: custom.event
+                  description: Type of the event
+                payload:
+                  type: object
+                  example: { data: "custom data", timestamp: "2024-01-15T10:30:00.000Z" }
+                  description: Event payload data
+      responses:
+        '201':
+          description: Custom event published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  messageId:
+                    type: string
+                    example: "1642248000000-7"
+                  message:
+                    type: string
+                    example: Custom event published successfully
+        '400':
+          description: Bad request - missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/batch:
+    post:
+      tags:
+        - Events
+      summary: Batch publish events
+      description: Publish multiple events to Redis Streams in a single request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - events
+              properties:
+                events:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - streamName
+                      - eventType
+                      - payload
+                    properties:
+                      streamName:
+                        type: string
+                        example: user:events
+                      eventType:
+                        type: string
+                        example: user.created
+                      payload:
+                        type: object
+                        example: { userId: "user-123", username: "john_doe" }
+                  example:
+                    - streamName: "user:events"
+                      eventType: "user.created"
+                      payload: { userId: "user-123", username: "john_doe" }
+                    - streamName: "chat:messages"
+                      eventType: "message.sent"
+                      payload: { senderId: "user-123", content: "Hello" }
+      responses:
+        '201':
+          description: Batch events published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  messageIds:
+                    type: array
+                    items:
+                      type: string
+                    example: ["1642248000000-8", "1642248000000-9"]
+                  count:
+                    type: integer
+                    example: 2
+                  message:
+                    type: string
+                    example: Batch events published successfully
+        '400':
+          description: Bad request - invalid events array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/processed:
+    get:
+      tags:
+        - Events
+      summary: Get processed events
+      description: Retrieve a list of processed events from the database
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          description: Number of events to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: eventType
+          in: query
+          description: Filter by event type
+          required: false
+          schema:
+            type: string
+            example: user.created
+        - name: processed
+          in: query
+          description: Filter by processed status
+          required: false
+          schema:
+            type: boolean
+            example: true
+      responses:
+        '200':
+          description: Processed events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  total:
+                    type: integer
+                    example: 150
+                  limit:
+                    type: integer
+                    example: 50
+                  offset:
+                    type: integer
+                    example: 0
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/stats:
+    get:
+      tags:
+        - Events
+      summary: Get event statistics
+      description: Get statistics about events in the system
+      responses:
+        '200':
+          description: Event statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  stats:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 1000
+                        description: Total number of events
+                      processed:
+                        type: integer
+                        example: 950
+                        description: Number of processed events
+                      pending:
+                        type: integer
+                        example: 50
+                        description: Number of pending events
+                      errors:
+                        type: integer
+                        example: 5
+                        description: Number of events with errors
+                      eventTypes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            eventType:
+                              type: string
+                              example: user.created
+                            count:
+                              type: integer
+                              example: 100
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/events/info:
+    get:
+      tags:
+        - Events
+      summary: Get available streams and event types
+      description: Get information about available Redis Streams and event types
+      responses:
+        '200':
+          description: Stream and event type information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  streams:
+                    type: array
+                    items:
+                      type: string
+                    example: ["user:events", "chat:messages", "task:queue", "system:logs"]
+                    description: Available Redis Streams
+                  eventTypes:
+                    type: array
+                    items:
+                      type: string
+                    example: ["user.created", "user.updated", "user.deleted", "message.sent", "task.created", "task.completed", "system.error", "system.info"]
+                    description: Available event types
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/streams:
+    get:
+      tags:
+        - Monitoring
+      summary: Get all Redis Streams information
+      description: Get detailed information about all Redis Streams including length, consumer groups, and recent messages
+      responses:
+        '200':
+          description: Streams information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  streams:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        length:
+                          type: integer
+                          example: 5
+                        info:
+                          type: object
+                          description: Stream metadata
+                        groups:
+                          type: array
+                          items:
+                            type: object
+                        recentMessages:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                example: "1758619840865-0"
+                              data:
+                                type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/streams/{streamName}:
+    get:
+      tags:
+        - Monitoring
+      summary: Get specific stream information
+      description: Get detailed information about a specific Redis Stream
+      parameters:
+        - name: streamName
+          in: path
+          required: true
+          description: Name of the Redis Stream
+          schema:
+            type: string
+            example: user:events
+        - name: limit
+          in: query
+          description: Maximum number of recent messages to return
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Stream information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  stream:
+                    type: string
+                    example: user:events
+                  length:
+                    type: integer
+                    example: 5
+                  info:
+                    type: object
+                    description: Stream metadata
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                  recentMessages:
+                    type: array
+                    items:
+                      type: object
+                  messageRange:
+                    type: array
+                    items:
+                      type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/streams/{streamName}/groups:
+    get:
+      tags:
+        - Monitoring
+      summary: Get consumer groups for a stream
+      description: Get information about consumer groups for a specific Redis Stream
+      parameters:
+        - name: streamName
+          in: path
+          required: true
+          description: Name of the Redis Stream
+          schema:
+            type: string
+            example: user:events
+      responses:
+        '200':
+          description: Consumer groups information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  stream:
+                    type: string
+                    example: user:events
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: user-processing-group
+                        consumers:
+                          type: integer
+                          example: 2
+                        pending:
+                          type: integer
+                          example: 0
+                        consumers:
+                          type: array
+                          items:
+                            type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/streams/{streamName}/messages:
+    get:
+      tags:
+        - Monitoring
+      summary: Read messages from stream
+      description: Read messages from a specific Redis Stream
+      parameters:
+        - name: streamName
+          in: path
+          required: true
+          description: Name of the Redis Stream
+          schema:
+            type: string
+            example: user:events
+        - name: start
+          in: query
+          description: Starting message ID
+          required: false
+          schema:
+            type: string
+            default: "0"
+        - name: end
+          in: query
+          description: Ending message ID
+          required: false
+          schema:
+            type: string
+            default: "+"
+        - name: count
+          in: query
+          description: Maximum number of messages to return
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: direction
+          in: query
+          description: Direction to read messages
+          required: false
+          schema:
+            type: string
+            enum: [forward, backward]
+            default: forward
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  stream:
+                    type: string
+                    example: user:events
+                  direction:
+                    type: string
+                    example: forward
+                  count:
+                    type: integer
+                    example: 5
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "1758619840865-0"
+                        data:
+                          type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/redis/info:
+    get:
+      tags:
+        - Monitoring
+      summary: Get Redis server information
+      description: Get information about the Redis server including version, memory usage, and statistics
+      responses:
+        '200':
+          description: Redis server information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  redis:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                        example: "7.0.0"
+                      mode:
+                        type: string
+                        example: "standalone"
+                      uptime:
+                        type: string
+                        example: "3600"
+                      connectedClients:
+                        type: string
+                        example: "5"
+                      usedMemory:
+                        type: string
+                        example: "1.2M"
+                      totalCommands:
+                        type: string
+                        example: "1000"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/monitoring/redis/ping:
+    get:
+      tags:
+        - Monitoring
+      summary: Test Redis connection
+      description: Test the connection to Redis server and measure latency
+      responses:
+        '200':
+          description: Redis ping successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  result:
+                    type: string
+                    example: "PONG"
+                  latency:
+                    type: string
+                    example: "2ms"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          description: Redis ping failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users/{id}/events:
+    get:
+      tags:
+        - Users
+      summary: Get user events
+      description: Get all events associated with a specific user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          description: Number of events to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: User events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      username:
+                        type: string
+                        example: john_doe
+                      email:
+                        type: string
+                        format: email
+                        example: john@example.com
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  total:
+                    type: integer
+                    example: 10
+                  limit:
+                    type: integer
+                    example: 50
+                  offset:
+                    type: integer
+                    example: 0
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        username:
+          type: string
+          example: john_doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          example: active
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        senderId:
+          type: string
+          example: user-123
+        receiverId:
+          type: string
+          example: user-456
+        content:
+          type: string
+          example: Hello, how are you?
+        roomId:
+          type: string
+          example: general
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        title:
+          type: string
+          example: Implement Redis Streams
+        description:
+          type: string
+          example: Complete the Redis Streams POC implementation
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: high
+        assignedTo:
+          type: string
+          example: user-123
+        createdBy:
+          type: string
+          example: user-456
+        dueDate:
+          type: string
+          format: date-time
+          example: "2024-01-20T23:59:59.000Z"
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        streamId:
+          type: string
+          example: "1642248000000-0"
+          description: Redis Stream message ID
+        eventType:
+          type: string
+          example: user.created
+        payload:
+          type: object
+          example: { userId: "user-123", username: "john_doe" }
+        processed:
+          type: boolean
+          example: true
+        processedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        consumerId:
+          type: string
+          example: consumer-1
+        error:
+          type: string
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: User not found
+        details:
+          type: string
+          example: The requested user ID does not exist
+        path:
+          type: string
+          example: /api/users/123e4567-e89b-12d3-a456-426614174000
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+externalDocs:
+  description: Find out more about Redis Streams
+  url: https://redis.io/docs/data-types/streams/

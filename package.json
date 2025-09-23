@@ -1,0 +1,32 @@
+{
+  "name": "redis-streams-poc",
+  "version": "1.0.0",
+  "description": "Redis Streams POC with Express, PostgreSQL, and Sequelize",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "consumer": "node src/scripts/startConsumer.js",
+    "consumer-group": "node src/scripts/startConsumerGroup.js",
+    "load-test": "node src/scripts/loadTest.js",
+    "inspect-streams": "node src/scripts/inspectStreams.js"
+  },
+  "keywords": ["redis", "streams", "express", "postgresql", "sequelize"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "sequelize": "^6.35.2",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "ioredis": "^5.3.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "swagger-ui-express": "^5.0.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
