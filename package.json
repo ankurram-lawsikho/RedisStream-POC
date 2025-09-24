@@ -5,7 +5,7 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "dev": "docker-compose up -d && nodemon src/app.js",
     "consumer": "node src/scripts/startConsumer.js",
     "consumer-group": "node src/scripts/startConsumerGroup.js",
     "load-test": "node src/scripts/loadTest.js",

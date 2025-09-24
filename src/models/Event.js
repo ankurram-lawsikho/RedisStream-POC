@@ -34,8 +34,9 @@ const Event = sequelize.define('Event', {
     field: 'consumer_id'
   },
   userId: {
-    type: DataTypes.UUID,
+    type: DataTypes.STRING,
     field: 'user_id',
+    allowNull: true,
     references: {
       model: 'users',
       key: 'id'

@@ -29,7 +29,7 @@ async function loadTest() {
           case 0:
             // User created event
             await ProducerService.publishUserCreated({
-              id: `user-${i}`,
+              id: require('uuid').v4(),
               username: `user${i}`,
               email: `user${i}@example.com`,
               status: 'active',
@@ -40,9 +40,9 @@ async function loadTest() {
           case 1:
             // Chat message event
             await ProducerService.publishChatMessage({
-              id: `msg-${i}`,
-              senderId: `user-${i}`,
-              receiverId: `user-${(i + 1) % 10}`,
+              id: require('uuid').v4(),
+              senderId: require('uuid').v4(),
+              receiverId: require('uuid').v4(),
               content: `Test message ${i}`,
               roomId: 'general',
               timestamp: new Date().toISOString()
@@ -52,12 +52,12 @@ async function loadTest() {
           case 2:
             // Task created event
             await ProducerService.publishTaskCreated({
-              id: `task-${i}`,
+              id: require('uuid').v4(),
               title: `Task ${i}`,
               description: `Description for task ${i}`,
               priority: ['low', 'medium', 'high'][i % 3],
-              assignedTo: `user-${i % 5}`,
-              createdBy: `user-${(i + 1) % 5}`,
+              assignedTo: require('uuid').v4(),
+              createdBy: require('uuid').v4(),
               dueDate: new Date(Date.now() + 86400000).toISOString()
             });
             break;
